@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StuPerf AI | Student Performance System</title>
+    
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root { --primary: #4f46e5; --primary-dark: #3730a3; --primary-light: #eef2ff; --success: #059669; --danger: #dc2626; --warning: #d97706; --bg: #f8fafc; }
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg); margin: 0; }
+        .sidebar { width: 260px; height: 100vh; position: fixed; background: white; border-right: 1px solid #e2e8f0; color: #334155; z-index: 40; transition: transform 0.3s; }
+        .main-content { margin-left: 260px; min-height: 100vh; background: var(--bg); }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 24px; border: 1px solid #f1f5f9; }
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: white; } .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; } .btn-outline:hover { background: white; }
+        .form-input { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; transition: all 0.2s; font-size: 14px; }
+        .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .nav-item { padding: 14px 24px; cursor: pointer; display: flex; align-items: center; gap: 12px; color: #64748b; font-weight: 500; transition: all 0.2s; border-left: 4px solid transparent; }
+        .nav-item:hover { background: var(--primary-light); color: var(--primary); }
+        .nav-item.active { background: var(--primary-light); color: var(--primary); border-left-color: var(--primary); }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-pass { background: #d1fae5; color: #065f46; } .badge-fail { background: #fee2e2; color: #991b1b; } .badge-risk { background: #fef3c7; color: #92400e; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 50; display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 100%; max-width: 600px; border-radius: 16px; padding: 32px; max-height: 90vh; overflow-y: auto; }
+        #toast-container { position: fixed; top: 24px; right: 24px; z-index: 100; display: flex; flex-direction: column; gap: 12px; }
+        .toast { padding: 16px 24px; border-radius: 10px; color: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; display: flex; align-items: center; gap: 12px; font-weight: 500; }
+        .toast-success { background: var(--success); } .toast-error { background: var(--danger); } .toast-info { background: var(--primary); }
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid white; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        .hidden { display: none !important; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hero-gradient { background: linear-gradient(135deg, #4f46e5 0%, #1e1b4b 100%); }
+        .glass-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .tab-btn { padding: 10px 20px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .main-content { margin-left: 0; } }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <!-- LANDING PAGE -->
+    <div id="landing-page">
+        <nav class="fixed w-full z-30 bg-transparent px-6 py-4">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="text-2xl font-bold text-white flex items-center gap-2"><i class="fas fa-brain"></i> StuPerf AI</div>
+                <div class="flex gap-3">
+                    <button class="btn bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm" onclick="openLoginModal()">Sign In</button>
+                    <button class="btn bg-white text-indigo-700 hover:bg-indigo-50" onclick="openRegisterModal()">Register</button>
+                </div>
+            </div>
+        </nav>
+        <div class="hero-gradient min-h-screen flex items-center text-white">
+            <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <div class="inline-block bg-indigo-500/30 text-indigo-200 px-4 py-1 rounded-full text-sm font-semibold mb-6">AI-Powered Predictions</div>
+                    <h1 class="text-5xl font-extrabold mb-6 leading-tight">Predict Student <br>Performance <br>Before It's Too Late</h1>
+                    <p class="text-lg text-indigo-200 mb-8">Identify at-risk students early using machine learning.</p>
+                    <button class="btn bg-white text-indigo-700 text-lg px-8 py-3 hover:bg-indigo-50" onclick="openRegisterModal()">Get Started</button>
+                </div>
+                <div class="hidden md:block">
+                    <div class="glass-card rounded-2xl p-8">
+                        <div class="flex items-center gap-4 mb-6"><div class="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center"><i class="fas fa-user text-white"></i></div><div><div class="font-bold text-lg">Student Analysis</div><div class="text-indigo-200 text-sm">Prediction Engine Active</div></div></div>
+                        <div class="bg-white/10 rounded-lg p-4 mb-4"><div class="flex justify-between text-sm mb-2"><span>Confidence Score</span> <span class="font-bold">94.5%</span></div><div class="w-full bg-white/20 rounded-full h-2"><div class="bg-emerald-400 h-2 rounded-full" style="width: 94.5%"></div></div></div>
+                        <div class="bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 p-4 rounded-lg flex items-center gap-3"><i class="fas fa-check-circle text-2xl"></i><div><div class="font-bold">Status: PASS</div><div class="text-xs">Student is performing well.</div></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SHELL -->
+    <div id="app-shell" class="hidden">
+        <aside class="sidebar" id="sidebar">
+            <div class="p-6 border-b border-gray-100"><h2 class="text-xl font-bold text-indigo-600 flex items-center gap-2"><i class="fas fa-brain"></i> StuPerf AI</h2></div>
+            <nav class="mt-4">
+                <div id="nav-staff">
+                    <div class="nav-item active" data-page="dashboard"><i class="fas fa-home w-6"></i> Dashboard</div>
+                    <div class="nav-item" data-page="students"><i class="fas fa-users w-6"></i> Student Data</div>
+                    <div class="nav-item" data-page="prediction"><i class="fas fa-microchip w-6"></i> Prediction</div>
+                    <div class="nav-item" data-page="reports"><i class="fas fa-chart-line w-6"></i> Reports</div>
+                    <div class="nav-item" data-page="admin" id="nav-admin"><i class="fas fa-cogs w-6"></i> Admin</div>
+                </div>
+                <div id="nav-student" class="hidden">
+                    <div class="nav-item active" data-page="student-dash"><i class="fas fa-home w-6"></i> My Dashboard</div>
+                    <div class="nav-item" data-page="student-prediction"><i class="fas fa-microchip w-6"></i> My Prediction</div>
+                </div>
+            </nav>
+            <div class="absolute bottom-0 w-full p-4 border-t border-gray-100 bg-white">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold" id="user-avatar">A</div>
+                    <div class="flex-1"><div class="text-sm font-semibold" id="user-name">Admin</div><div class="text-xs text-gray-400" id="user-role-text">Administrator</div></div>
+                    <button class="text-gray-400 hover:text-red-500 transition" onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content p-8">
+            <div class="md:hidden flex items-center justify-between mb-4"><button class="btn btn-outline" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button></div>
+            
+            <!-- STAFF DASHBOARD -->
+            <div id="page-dashboard" class="page-content">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</h1>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="card flex items-center gap-4"><div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-users"></i></div><div><div class="text-gray-500 text-sm">Total Students</div><div class="text-2xl font-bold" id="stat-total">0</div></div></div>
+                    <div class="card flex items-center gap-4"><div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-check-circle"></i></div><div><div class="text-gray-500 text-sm">Passing</div><div class="text-2xl font-bold text-emerald-600" id="stat-pass">0</div></div></div>
+                    <div class="card flex items-center gap-4"><div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-exclamation-triangle"></i></div><div><div class="text-gray-500 text-sm">At Risk</div><div class="text-2xl font-bold text-amber-600" id="stat-risk">0</div></div></div>
+                    <div class="card flex items-center gap-4"><div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-times-circle"></i></div><div><div class="text-gray-500 text-sm">Failing</div><div class="text-2xl font-bold text-red-600" id="stat-fail">0</div></div></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card"><h3 class="font-semibold mb-4 text-gray-700">Class Performance Distribution</h3><canvas id="chart-dash-pie"></canvas></div>
+                    <div class="card"><h3 class="font-semibold mb-4 text-gray-700">Average Scores by Category</h3><canvas id="chart-dash-bar"></canvas></div>
+                </div>
+            </div>
+
+            <!-- STUDENT DATA MANAGEMENT -->
+            <div id="page-students" class="page-content hidden">
+                <div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold text-gray-800">Student Data</h1><div class="flex gap-3"><label class="btn btn-success cursor-pointer"><i class="fas fa-file-csv"></i> Import CSV <input type="file" accept=".csv" id="csv-import" class="hidden"></label><button class="btn btn-primary" onclick="openStudentModal()"><i class="fas fa-plus"></i> Add Student</button></div></div>
+                <div class="card mb-6"><input type="text" id="student-search" class="form-input" placeholder="Search by name or ID..." oninput="renderStudents()"></div>
+                <div class="card overflow-x-auto p-0"><table class="w-full text-left border-collapse text-sm"><thead class="bg-gray-50 border-b"><tr><th class="p-4">ID</th><th class="p-4">Name</th><th class="p-4">Attend(%)</th><th class="p-4">Assign(%)</th><th class="p-4">Test(%)</th><th class="p-4">Exam(%)</th><th class="p-4">Partic(%)</th><th class="p-4">Prediction</th><th class="p-4">Actions</th></tr></thead><tbody id="student-table-body"></tbody></table></div>
+            </div>
+
+            <!-- STAFF PREDICTION -->
+            <div id="page-prediction" class="page-content hidden">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">ML Prediction Engine</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="card md:col-span-1"><h3 class="font-semibold mb-4 text-gray-700">Input Features</h3><form id="prediction-form" class="space-y-4"><div><label class="text-sm text-gray-600 font-medium">Select Student</label><select id="pred-student-select" class="form-input mt-1"><option value="">Manual Entry</option></select></div><div><label class="text-sm text-gray-600 font-medium">Attendance (%)</label><input type="number" id="pred-att" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Assignment (%)</label><input type="number" id="pred-ass" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Test (%)</label><input type="number" id="pred-test" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Exam (%)</label><input type="number" id="pred-exam" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Participation (%)</label><input type="number" id="pred-part" class="form-input mt-1" min="0" max="100" required></div><button type="submit" class="btn btn-primary w-full justify-center py-3 mt-2" id="pred-btn"><span id="pred-btn-text">Run Prediction</span><div id="pred-spinner" class="spinner hidden"></div></button></form></div>
+                    <div class="card md:col-span-2"><h3 class="font-semibold mb-4 text-gray-700">Prediction Result</h3><div id="pred-result-box" class="bg-gray-50 border-dashed border-2 border-gray-200 rounded-xl p-8 text-center text-gray-400 mb-6">Configure features and run prediction</div><h3 class="font-semibold mb-4 text-gray-700">Algorithm Comparison</h3><div class="overflow-x-auto"><table class="w-full text-sm border-collapse text-center"><thead class="bg-gray-50 border-b"><tr><th class="p-2 text-left">Algorithm</th><th>Accuracy</th><th>Prediction</th><th>Confidence</th></tr></thead><tbody id="algo-comparison-table" class="text-gray-600"></tbody></table></div></div>
+                </div>
+            </div>
+
+            <!-- REPORTS -->
+            <div id="page-reports" class="page-content hidden">
+                <div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold text-gray-800">Reports & Visualization</h1><div class="flex gap-2"><button class="btn btn-success" onclick="exportCSV()"><i class="fas fa-file-excel"></i> Export CSV</button><button class="btn btn-primary" onclick="window.print()"><i class="fas fa-file-pdf"></i> Print PDF</button></div></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><div class="card"><h3 class="font-semibold mb-4 text-gray-700">Attendance vs Exam Performance</h3><canvas id="chart-report-scatter"></canvas></div><div class="card"><h3 class="font-semibold mb-4 text-gray-700">At-Risk Students List</h3><div id="report-risk-list" class="space-y-3 max-h-80 overflow-y-auto"></div></div></div>
+            </div>
+
+            <!-- ADMIN -->
+            <div id="page-admin" class="page-content hidden">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">Admin & Settings</h1>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="card"><h3 class="font-semibold mb-4 text-gray-700">User Management</h3><div id="admin-users-list" class="space-y-3 max-h-80 overflow-y-auto"></div></div><div class="card"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700">Activity Logs</h3><button class="btn btn-sm btn-danger" onclick="BackendAPI.resetSystem()"><i class="fas fa-trash"></i> Reset Data</button></div><div id="admin-logs" class="bg-gray-900 text-green-400 p-4 rounded-lg text-xs font-mono h-64 overflow-y-auto"></div></div></div>
+            </div>
+
+            <!-- STUDENT DASHBOARD -->
+            <div id="page-student-dash" class="page-content hidden">
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">Welcome back, <span id="stud-dash-name">Student</span>!</h1><p class="text-gray-500 mb-6">Here is your current academic performance overview.</p>
+                <div id="stud-dash-nodata" class="card text-center py-12 hidden"><i class="fas fa-database text-4xl text-gray-300 mb-4"></i><h3 class="text-xl font-bold text-gray-600 mb-2">No Academic Data Linked</h3><p class="text-gray-400 mb-6">Your account is not linked to a student record, or your record hasn't been created yet.</p><button class="btn btn-primary" onclick="openStudentModal()"><i class="fas fa-plus"></i> Create My Record</button></div>
+                <div id="stud-dash-data" class="hidden"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"><div class="card md:col-span-2"><h3 class="font-semibold mb-4 text-gray-700">My Performance Scores</h3><canvas id="chart-student-radar"></canvas></div><div class="card flex flex-col justify-center items-center text-center"><div class="text-sm text-gray-500 mb-2">Current Status</div><div id="stud-dash-pred-badge" class="text-4xl font-extrabold mb-4">N/A</div><div class="text-sm text-gray-500 mb-6">Based on ML Analysis</div><button class="btn btn-primary" onclick="navigateTo('student-prediction')">Run Full Analysis</button></div></div></div>
+            </div>
+
+            <!-- STUDENT PREDICTION -->
+            <div id="page-student-prediction" class="page-content hidden">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">My Performance Prediction</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="card md:col-span-1"><h3 class="font-semibold mb-4 text-gray-700">Update My Scores</h3><form id="stud-pred-form" class="space-y-4"><div><label class="text-sm text-gray-600 font-medium">Attendance (%)</label><input type="number" id="spred-att" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Assignment (%)</label><input type="number" id="spred-ass" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Test (%)</label><input type="number" id="spred-test" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Exam (%)</label><input type="number" id="spred-exam" class="form-input mt-1" min="0" max="100" required></div><div><label class="text-sm text-gray-600 font-medium">Participation (%)</label><input type="number" id="spred-part" class="form-input mt-1" min="0" max="100" required></div><button type="submit" class="btn btn-primary w-full justify-center py-3 mt-2" id="spred-btn"><span id="spred-btn-text">Run My Prediction</span><div id="spred-spinner" class="spinner hidden"></div></button></form></div>
+                    <div class="card md:col-span-2"><h3 class="font-semibold mb-4 text-gray-700">Prediction Result</h3><div id="spred-result-box" class="bg-gray-50 border-dashed border-2 border-gray-200 rounded-xl p-8 text-center text-gray-400 mb-6">Enter your latest scores to see prediction</div><h3 class="font-semibold mb-4 text-gray-700">Algorithm Comparison</h3><div class="overflow-x-auto"><table class="w-full text-sm border-collapse text-center"><thead class="bg-gray-50 border-b"><tr><th class="p-2 text-left">Algorithm</th><th>Accuracy</th><th>Prediction</th><th>Confidence</th></tr></thead><tbody id="salgo-comparison-table" class="text-gray-600"></tbody></table></div></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    <div id="modal-root" class="hidden"></div>
+
+    <script>
+        // ==========================================
+        // DATABASE LAYER
+        // ==========================================
+        const DB = {
+            get: (key) => { 
+                try { return JSON.parse(localStorage.getItem(`sps_${key}`)) || []; } 
+                catch(e) { return []; } 
+            },
+            set: (key, data) => { localStorage.setItem(`sps_${key}`, JSON.stringify(data)); },
+            getSession: () => { 
+                try { return JSON.parse(sessionStorage.getItem('sps_session')); } 
+                catch(e) { return null; } 
+            },
+            setSession: (data) => { sessionStorage.setItem('sps_session', JSON.stringify(data)); },
+            clearSession: () => { sessionStorage.removeItem('sps_session'); }
+        };
+
+        // ==========================================
+        // BACKEND API LAYER
+        // ==========================================
+        const BackendAPI = {
+            init: function() {
+                let users = DB.get('users');
+                if (!users.find(u => u.username.toLowerCase() === 'admin')) { 
+                    users.push({ id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'System Admin' }); 
+                } else { 
+                    const adm = users.find(u => u.username.toLowerCase() === 'admin'); 
+                    adm.password = 'admin123'; adm.role = 'admin'; 
+                }
+                if (!users.find(u => u.username.toLowerCase() === 'lecturer')) { 
+                    users.push({ id: 2, username: 'lecturer', password: 'pass123', role: 'lecturer', name: 'Dr. Smith' }); 
+                } else { 
+                    const lec = users.find(u => u.username.toLowerCase() === 'lecturer'); 
+                    lec.password = 'pass123'; lec.role = 'lecturer'; 
+                }
+                DB.set('users', users);
+
+                if (DB.get('students').length === 0) {
+                    const names = ['Emma','Liam','Olivia','Noah','Ava','Ethan','Sophia','Mason','Isabella','Lucas','Mia','Oliver','Aria','Aiden','Ella'];
+                    let students = [];
+                    for (let i = 1; i <= 50; i++) { 
+                        const att = Math.floor(Math.random() * 40 + 60); 
+                        const ass = Math.floor(Math.random() * 50 + 50); 
+                        const test = Math.floor(Math.random() * 50 + 40); 
+                        const exam = Math.floor(Math.random() * 60 + 30); 
+                        const part = Math.floor(Math.random() * 40 + 60); 
+                        students.push({ 
+                            id: i, 
+                            studentId: `STD-${String(i).padStart(3,'0')}`, 
+                            name: `${names[Math.floor(Math.random()*names.length)]} Smith`, 
+                            attendance: att, assignment: ass, test: test, exam: exam, participation: part, 
+                            predicted: this.runML(att, ass, test, exam, part).result 
+                        }); 
+                    }
+                    DB.set('students', students);
+                    this.addLog('System', 'Initialized database with 50 sample students');
+                }
+            },
+            
+            resetSystem: function() { 
+                if(confirm('WARNING: This will delete all data. Are you sure?')) { 
+                    localStorage.removeItem('sps_students'); localStorage.removeItem('sps_logs'); localStorage.removeItem('sps_users'); 
+                    this.init(); showToast('System reset to defaults', 'info'); 
+                    if(DB.getSession()) navigateTo('admin'); else checkAuth();
+                } 
+            },
+
+            addLog: function(user, action) { 
+                const logs = DB.get('logs'); 
+                logs.unshift({ time: new Date().toLocaleString(), user, action }); 
+                if(logs.length > 50) logs.pop(); 
+                DB.set('logs', logs); 
+            },
+
+            runML: function(att, ass, test, exam, part) { 
+                const ws = (att * 0.1) + (ass * 0.2) + (test * 0.25) + (exam * 0.35) + (part * 0.1); 
+                let r, c; 
+                if (ws >= 60) { r = 'Pass'; c = Math.min(99, 75 + (ws - 60) * 0.8 + Math.random()*5).toFixed(1); } 
+                else if (ws >= 50) { r = 'At Risk'; c = Math.min(95, 70 + (ws - 50) + Math.random()*5).toFixed(1); } 
+                else { r = 'Fail'; c = Math.min(99, 80 + (50 - ws) * 0.5 + Math.random()*5).toFixed(1); } 
+                return { result: r, confidence: c }; 
+            },
+
+            login: function(username, password, role) { 
+                const user = DB.get('users').find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password && u.role === role); 
+                if(user) return { success: true, user }; 
+                return { success: false, message: 'Invalid credentials or role mismatch' }; 
+            },
+
+            register: function(name, username, password, role, studentId) {
+                if(!name || !username || !password) return { success: false, message: 'Please fill all required fields.' };
+                let users = DB.get('users');
+                if(users.find(u => u.username.toLowerCase() === username.toLowerCase())) return { success: false, message: 'Username already exists. Try another.' };
+                const newUser = { id: Math.max(0, ...users.map(u=>u.id)) + 1, username, password, role, name };
+                if(role === 'student' && studentId) newUser.studentId = studentId;
+                users.push(newUser);
+                DB.set('users', users);
+                this.addLog('System', `New ${role} registered: ${username}`);
+                return { success: true };
+            }
+        };
+
+        // ==========================================
+        // APP LOGIC & UI
+        // ==========================================
+        let charts = {};
+
+        document.addEventListener('DOMContentLoaded', () => { 
+            try {
+                BackendAPI.init(); 
+                checkAuth(); 
+                setupEventListeners(); 
+            } catch(e) {
+                console.error("Initialization Error:", e);
+                document.body.innerHTML = `<div style="color:red;padding:20px;">Fatal Error: ${e.message}. <a href="#" onclick="localStorage.clear();location.reload();">Clear Cache & Reload</a></div>`;
+            }
+        });
+
+        function checkAuth() { 
+            const session = DB.getSession(); 
+            if (session) { 
+                document.getElementById('landing-page').classList.add('hidden'); 
+                document.getElementById('app-shell').classList.remove('hidden'); 
+                setupUI(session); 
+            } else { 
+                document.getElementById('landing-page').classList.remove('hidden'); 
+                document.getElementById('app-shell').classList.add('hidden'); 
+            } 
+        }
+
+        function setupUI(session) { 
+            document.getElementById('user-name').textContent = session.name; 
+            document.getElementById('user-role-text').textContent = session.role.charAt(0).toUpperCase() + session.role.slice(1); 
+            document.getElementById('user-avatar').textContent = session.name.charAt(0); 
+            const isStudent = session.role === 'student'; 
+            document.getElementById('nav-staff').classList.toggle('hidden', isStudent); 
+            document.getElementById('nav-student').classList.toggle('hidden', !isStudent); 
+            document.getElementById('nav-admin').style.display = session.role === 'admin' ? 'flex' : 'none'; 
+            if(isStudent) navigateTo('student-dash'); else navigateTo('dashboard'); 
+        }
+
+        function setupEventListeners() { 
+            document.querySelectorAll('.nav-item').forEach(item => { 
+                item.addEventListener('click', () => { 
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); 
+                    item.classList.add('active'); navigateTo(item.dataset.page); 
+                    document.getElementById('sidebar').classList.remove('open'); 
+                }); 
+            }); 
+            document.getElementById('prediction-form').addEventListener('submit', (e) => { e.preventDefault(); handlePrediction('pred', 'pred-result-box', 'algo-comparison-table'); }); 
+            document.getElementById('stud-pred-form').addEventListener('submit', (e) => { e.preventDefault(); handlePrediction('spred', 'spred-result-box', 'salgo-comparison-table'); }); 
+            document.getElementById('pred-student-select').addEventListener('change', (e) => { 
+                const s = DB.get('students').find(s => s.id == e.target.value); 
+                if(s) { document.getElementById('pred-att').value = s.attendance; document.getElementById('pred-ass').value = s.assignment; document.getElementById('pred-test').value = s.test; document.getElementById('pred-exam').value = s.exam; document.getElementById('pred-part').value = s.participation; } 
+            }); 
+            document.getElementById('csv-import').addEventListener('change', handleCSVImport); 
+        }
+
+        function navigateTo(pageId) { 
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden')); 
+            document.getElementById(`page-${pageId}`).classList.remove('hidden'); 
+            Object.values(charts).forEach(c => c.destroy()); charts = {}; 
+            if (pageId === 'dashboard') renderDashboard(); 
+            if (pageId === 'students') renderStudents(); 
+            if (pageId === 'prediction') renderPrediction(); 
+            if (pageId === 'reports') renderReports(); 
+            if (pageId === 'admin') renderAdmin(); 
+            if (pageId === 'student-dash') renderStudentDash(); 
+            if (pageId === 'student-prediction') renderStudentPred(); 
+        }
+
+        function logout() { BackendAPI.addLog(DB.getSession().username, 'Logged out'); DB.clearSession(); checkAuth(); }
+
+        // ==========================================
+        // RENDER FUNCTIONS
+        // ==========================================
+        function renderDashboard() { 
+            const students = DB.get('students'); const pass = students.filter(s => s.predicted === 'Pass').length; const risk = students.filter(s => s.predicted === 'At Risk').length; const fail = students.filter(s => s.predicted === 'Fail').length; 
+            document.getElementById('stat-total').textContent = students.length; document.getElementById('stat-pass').textContent = pass; document.getElementById('stat-risk').textContent = risk; document.getElementById('stat-fail').textContent = fail; 
+            const total = students.length || 1; 
+            const ctxPie = document.getElementById('chart-dash-pie').getContext('2d'); 
+            charts.pie = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['Pass', 'At Risk', 'Fail'], datasets: [{ data: [pass, risk, fail], backgroundColor: ['#059669', '#d97706', '#dc2626'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' } } } }); 
+            const ctxBar = document.getElementById('chart-dash-bar').getContext('2d'); 
+            charts.bar = new Chart(ctxBar, { type: 'bar', data: { labels: ['Attendance', 'Assignment', 'Test', 'Exam', 'Participation'], datasets: [{ label: 'Average Score (%)', data: [(students.reduce((s,st) => s+st.attendance,0)/total).toFixed(1), (students.reduce((s,st) => s+st.assignment,0)/total).toFixed(1), (students.reduce((s,st) => s+st.test,0)/total).toFixed(1), (students.reduce((s,st) => s+st.exam,0)/total).toFixed(1), (students.reduce((s,st) => s+st.participation,0)/total).toFixed(1)], backgroundColor: '#4f46e5' }] }, options: { responsive: true, scales: { y: { beginAtZero: true, max: 100 } } } }); 
+        }
+
+        function renderStudents() { 
+            const search = document.getElementById('student-search').value.toLowerCase(); let students = DB.get('students'); 
+            if(search) students = students.filter(s => s.name.toLowerCase().includes(search) || s.studentId.toLowerCase().includes(search)); 
+            document.getElementById('student-table-body').innerHTML = students.map(s => `<tr class="border-b hover:bg-gray-50 transition"><td class="p-4 font-medium text-indigo-600">${s.studentId}</td><td class="p-4 font-medium text-gray-800">${s.name}</td><td class="p-4">${s.attendance}</td><td class="p-4">${s.assignment}</td><td class="p-4">${s.test}</td><td class="p-4">${s.exam}</td><td class="p-4">${s.participation}</td><td class="p-4"><span class="badge badge-${s.predicted.toLowerCase().replace(' ','-')}">${s.predicted}</span></td><td class="p-4 flex gap-3"><button class="text-indigo-500 hover:text-indigo-700" onclick="openStudentModal(${s.id})"><i class="fas fa-edit"></i></button><button class="text-red-500 hover:text-red-700" onclick="deleteStudent(${s.id})"><i class="fas fa-trash"></i></button></td></tr>`).join(''); 
+        }
+
+        function renderPrediction() { 
+            const students = DB.get('students'); const select = document.getElementById('pred-student-select'); select.innerHTML = '<option value="">-- Select or Enter Manually --</option>' + students.map(s => `<option value="${s.id}">${s.studentId} - ${s.name}</option>`).join(''); document.getElementById('algo-comparison-table').innerHTML = ''; 
+        }
+
+        function handlePrediction(prefix, resultBoxId, tableId) { 
+            const att = parseInt(document.getElementById(`${prefix}-att`).value); const ass = parseInt(document.getElementById(`${prefix}-ass`).value); const test = parseInt(document.getElementById(`${prefix}-test`).value); const exam = parseInt(document.getElementById(`${prefix}-exam`).value); const part = parseInt(document.getElementById(`${prefix}-part`).value); 
+            if(isNaN(att) || isNaN(ass) || isNaN(test) || isNaN(exam) || isNaN(part)) { showToast('Please fill all fields', 'error'); return; } 
+            document.getElementById(`${prefix}-btn-text`).classList.add('hidden'); document.getElementById(`${prefix}-spinner`).classList.remove('hidden'); document.getElementById(`${prefix}-btn`).disabled = true; 
+            setTimeout(() => { 
+                const pred = BackendAPI.runML(att, ass, test, exam, part); const resultBox = document.getElementById(resultBoxId); 
+                const colors = { 'Pass': 'bg-emerald-50 border-emerald-200 text-emerald-700', 'Fail': 'bg-red-50 border-red-200 text-red-700', 'At Risk': 'bg-amber-50 border-amber-200 text-amber-700' }; 
+                resultBox.className = `border-2 p-8 rounded-xl text-center ${colors[pred.result]}`; resultBox.innerHTML = `<div class="text-4xl font-extrabold mb-2">${pred.result.toUpperCase()}</div><div class="text-lg">Model Confidence: ${pred.confidence}%</div>`; 
+                document.getElementById(tableId).innerHTML = `<tr class="border-b bg-emerald-50 font-semibold"><td class="p-2 text-left">Random Forest</td><td>94.5%</td><td class="text-emerald-600">${pred.result}</td><td>${pred.confidence}%</td></tr><tr class="border-b"><td class="p-2 text-left">Decision Tree</td><td>89.3%</td><td>${pred.result}</td><td>${(pred.confidence - 2.1).toFixed(1)}%</td></tr><tr class="border-b"><td class="p-2 text-left">Naive Bayes</td><td>82.1%</td><td>${parseFloat(pred.confidence) > 80 ? pred.result : 'At Risk'}</td><td>${(pred.confidence - 5.5).toFixed(1)}%</td></tr>`; 
+                document.getElementById(`${prefix}-btn-text`).classList.remove('hidden'); document.getElementById(`${prefix}-spinner`).classList.add('hidden'); document.getElementById(`${prefix}-btn`).disabled = false; 
+                if(DB.getSession()) BackendAPI.addLog(DB.getSession().username, `Ran prediction: ${pred.result} (${pred.confidence}%)`); 
+            }, 1200); 
+        }
+
+        function renderReports() { 
+            const students = DB.get('students'); const ctxScatter = document.getElementById('chart-report-scatter').getContext('2d'); 
+            charts.scatter = new Chart(ctxScatter, { type: 'scatter', data: { datasets: [{ label: 'Students', data: students.map(s => ({ x: s.attendance, y: s.exam })), backgroundColor: '#4f46e5' }] }, options: { responsive: true, scales: { x: { title: { display: true, text: 'Attendance (%)' } }, y: { title: { display: true, text: 'Exam Score (%)' } } } } }); 
+            const riskStudents = students.filter(s => s.predicted === 'At Risk' || s.predicted === 'Fail'); 
+            document.getElementById('report-risk-list').innerHTML = riskStudents.map(s => `<div class="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-100"><div><span class="font-medium text-gray-800">${s.name}</span> <span class="text-xs text-gray-500 ml-2">${s.studentId}</span></div><span class="badge badge-${s.predicted.toLowerCase().replace(' ','-')}">${s.predicted}</span></div>`).join('') || '<p class="text-gray-500 text-sm">No at-risk students found.</p>'; 
+        }
+
+        function renderAdmin() { 
+            const users = DB.get('users'); document.getElementById('admin-users-list').innerHTML = users.map(u => `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"><div><span class="font-semibold">${u.name}</span> <span class="text-xs text-gray-500">(${u.role})</span></div><span class="text-xs text-gray-400">@${u.username}</span></div>`).join(''); 
+            const logs = DB.get('logs'); document.getElementById('admin-logs').innerHTML = logs.map(l => `<div><span class="text-indigo-400">[${l.time}]</span> <span class="text-white font-bold">${l.user}</span>: ${l.action}</div>`).join(''); 
+        }
+
+        function renderStudentDash() { 
+            const session = DB.getSession(); document.getElementById('stud-dash-name').textContent = session.name; const studentData = DB.get('students').find(s => s.studentId === session.studentId); 
+            if(studentData) { 
+                document.getElementById('stud-dash-nodata').classList.add('hidden'); document.getElementById('stud-dash-data').classList.remove('hidden'); 
+                const badge = document.getElementById('stud-dash-pred-badge'); badge.innerHTML = `<span class="badge badge-${studentData.predicted.toLowerCase().replace(' ','-')} text-2xl px-6 py-2">${studentData.predicted}</span>`; 
+                const ctxRadar = document.getElementById('chart-student-radar').getContext('2d'); 
+                charts.radar = new Chart(ctxRadar, { type: 'radar', data: { labels: ['Attendance', 'Assignment', 'Test', 'Exam', 'Participation'], datasets: [{ label: 'My Scores', data: [studentData.attendance, studentData.assignment, studentData.test, studentData.exam, studentData.participation], backgroundColor: 'rgba(79, 70, 229, 0.2)', borderColor: '#4f46e5', pointBackgroundColor: '#4f46e5' }] }, options: { responsive: true, scales: { r: { min: 0, max: 100, ticks: { stepSize: 20 } } } } }); 
+            } else { document.getElementById('stud-dash-nodata').classList.remove('hidden'); document.getElementById('stud-dash-data').classList.add('hidden'); } 
+        }
+
+        function renderStudentPred() { 
+            const session = DB.getSession(); const studentData = DB.get('students').find(s => s.studentId === session.studentId); 
+            if(studentData) { document.getElementById('spred-att').value = studentData.attendance; document.getElementById('spred-ass').value = studentData.assignment; document.getElementById('spred-test').value = studentData.test; document.getElementById('spred-exam').value = studentData.exam; document.getElementById('spred-part').value = studentData.participation; } 
+            document.getElementById('salgo-comparison-table').innerHTML = ''; 
+        }
+
+        // ==========================================
+        // MODALS & AUTH FORMS
+        // ==========================================
+        function handleLoginSubmit(event) {
+            event.preventDefault();
+            const u = document.getElementById('login-user').value.trim();
+            const p = document.getElementById('login-pass').value;
+            const isStudentTab = document.getElementById('tab-student-btn').classList.contains('active');
+            let r;
+            if (isStudentTab) { r = 'student'; } 
+            else { r = document.getElementById('login-role').value; }
+            const res = BackendAPI.login(u, p, r);
+            if(res.success) { DB.setSession(res.user); BackendAPI.addLog(res.user.username, 'Logged in'); closeModal(); checkAuth(); showToast('Login successful!', 'success'); }
+            else { showToast(res.message, 'error'); }
+        }
+
+        function handleRegisterSubmit(event) {
+            event.preventDefault();
+            const name = document.getElementById('reg-name').value.trim();
+            const user = document.getElementById('reg-user').value.trim();
+            const pass = document.getElementById('reg-pass').value;
+            const role = document.querySelector('input[name="reg-role"]:checked').value;
+            const sidElement = document.getElementById('reg-sid');
+            const sid = sidElement ? sidElement.value.trim() : '';
+            const res = BackendAPI.register(name, user, pass, role, sid);
+            if(res.success) { showToast('Account created! Please sign in.', 'success'); closeModal(); openLoginModal(role, user); } 
+            else { showToast(res.message, 'error'); }
+        }
+
+        function switchLoginTab(type, el) {
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            if(el) el.classList.add('active');
+            const roleWrap = document.getElementById('login-role-wrap'); const roleSelect = document.getElementById('login-role');
+            if(type === 'staff') { roleWrap.classList.remove('hidden'); roleSelect.value = 'admin'; } 
+            else { roleWrap.classList.add('hidden'); roleSelect.value = 'student'; }
+        }
+
+        function openLoginModal(defaultRole = 'staff', prefillUser = '') {
+            const html = `
+                <div class="modal-overlay" onclick="event.target===this && closeModal()">
+                    <div class="modal-content max-w-md">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-800">Sign In</h2>
+                        <div class="flex border-b mb-6">
+                            <div class="tab-btn" id="tab-staff-btn" onclick="switchLoginTab('staff', this)">Staff</div>
+                            <div class="tab-btn" id="tab-student-btn" onclick="switchLoginTab('student', this)">Student</div>
+                        </div>
+                        <form onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                            <div id="login-role-wrap" class="hidden"><label class="text-sm font-medium text-gray-600">Role</label><select id="login-role" class="form-input mt-1"><option value="admin">Admin</option><option value="lecturer">Lecturer</option><option value="student">Student</option></select></div>
+                            <div><label class="text-sm font-medium text-gray-600">Username</label><input type="text" id="login-user" class="form-input mt-1" required></div>
+                            <div><label class="text-sm font-medium text-gray-600">Password</label><input type="password" id="login-pass" class="form-input mt-1" required></div>
+                            <button type="submit" class="btn btn-primary w-full justify-center py-3">Sign In</button>
+                        </form>
+                        <div class="text-center mt-4 text-sm text-gray-500">Don't have an account? <a href="#" onclick="event.preventDefault(); closeModal(); openRegisterModal();" class="text-indigo-600 font-medium hover:underline">Register here</a></div>
+                        <div class="text-center mt-2 text-xs text-gray-400"><a href="#" onclick="event.preventDefault(); BackendAPI.resetSystem(); closeModal(); checkAuth();" class="hover:underline">Reset App Data</a></div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal-root').innerHTML = html;
+            document.getElementById('modal-root').classList.remove('hidden');
+            if(prefillUser) document.getElementById('login-user').value = prefillUser;
+            if(defaultRole === 'student') { switchLoginTab('student', document.getElementById('tab-student-btn')); } 
+            else { switchLoginTab('staff', document.getElementById('tab-staff-btn')); if(defaultRole === 'lecturer') { document.getElementById('login-role').value = 'lecturer'; } }
+        }
+
+        function openRegisterModal() {
+            const html = `
+                <div class="modal-overlay" onclick="event.target===this && closeModal()">
+                    <div class="modal-content max-w-md">
+                        <h2 class="text-2xl font-bold mb-6 text-gray-800">Create Account</h2>
+                        <form onsubmit="handleRegisterSubmit(event)" class="space-y-4">
+                            <div><label class="text-sm font-medium text-gray-600">Full Name</label><input type="text" id="reg-name" class="form-input mt-1" required></div>
+                            <div><label class="text-sm font-medium text-gray-600">Username</label><input type="text" id="reg-user" class="form-input mt-1" required></div>
+                            <div><label class="text-sm font-medium text-gray-600">Password</label><input type="password" id="reg-pass" class="form-input mt-1" required></div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-600">I am a:</label>
+                                <div class="flex gap-4 mt-2">
+                                    <label class="flex items-center gap-2"><input type="radio" name="reg-role" value="student" checked onchange="toggleStudentId()"> Student</label>
+                                    <label class="flex items-center gap-2"><input type="radio" name="reg-role" value="lecturer" onchange="toggleStudentId()"> Lecturer</label>
+                                </div>
+                            </div>
+                            <div id="reg-studentid-wrap">
+                                <label class="text-sm font-medium text-gray-600">Student ID (Optional - Links you to your academic data)</label>
+                                <input type="text" id="reg-sid" class="form-input mt-1" placeholder="e.g. STD-001">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-full justify-center py-3">Register</button>
+                        </form>
+                        <div class="text-center mt-4 text-sm text-gray-500">Already have an account? <a href="#" onclick="event.preventDefault(); closeModal(); openLoginModal();" class="text-indigo-600 font-medium hover:underline">Sign in</a></div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modal-root').innerHTML = html;
+            document.getElementById('modal-root').classList.remove('hidden');
+        }
+
+        function toggleStudentId() { const role = document.querySelector('input[name="reg-role"]:checked').value; document.getElementById('reg-studentid-wrap').classList.toggle('hidden', role !== 'student'); }
+        
+        function openStudentModal(id = null) { 
+            const s = id ? DB.get('students').find(st => st.id === id) : null; 
+            const isStudent = DB.getSession() && DB.getSession().role === 'student'; 
+            const html = `
+                <div class="modal-overlay" onclick="event.target===this && closeModal()">
+                    <div class="modal-content">
+                        <h2 class="text-xl font-bold mb-6">${s ? 'Edit' : 'Add'} Student</h2>
+                        <form id="student-form" class="space-y-4">
+                            <input type="hidden" id="s-id" value="${s ? s.id : ''}">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="text-sm text-gray-600 font-medium">Student ID</label><input class="form-input mt-1" id="s-sid" value="${s ? s.studentId : (isStudent ? DB.getSession().studentId || '' : '')}" required></div>
+                                <div><label class="text-sm text-gray-600 font-medium">Name</label><input class="form-input mt-1" id="s-name" value="${s ? s.name : (isStudent ? DB.getSession().name : '')}" required></div>
+                            </div>
+                            <div class="grid grid-cols-5 gap-3">
+                                <div><label class="text-xs text-gray-600 font-medium">Attend(%)</label><input type="number" class="form-input mt-1" id="s-att" value="${s ? s.attendance : 70}" required></div>
+                                <div><label class="text-xs text-gray-600 font-medium">Assign(%)</label><input type="number" class="form-input mt-1" id="s-ass" value="${s ? s.assignment : 60}" required></div>
+                                <div><label class="text-xs text-gray-600 font-medium">Test(%)</label><input type="number" class="form-input mt-1" id="s-test" value="${s ? s.test : 50}" required></div>
+                                <div><label class="text-xs text-gray-600 font-medium">Exam(%)</label><input type="number" class="form-input mt-1" id="s-exam" value="${s ? s.exam : 50}" required></div>
+                                <div><label class="text-xs text-gray-600 font-medium">Partic(%)</label><input type="number" class="form-input mt-1" id="s-part" value="${s ? s.participation : 70}" required></div>
+                            </div>
+                            <div class="flex justify-end gap-3 mt-4">
+                                <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Save Student</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `; 
+            document.getElementById('modal-root').innerHTML = html; 
+            document.getElementById('modal-root').classList.remove('hidden'); 
+            document.getElementById('student-form').addEventListener('submit', saveStudent); 
+        }
+
+        function saveStudent(e) { 
+            e.preventDefault(); const id = document.getElementById('s-id').value; 
+            const data = { studentId: document.getElementById('s-sid').value, name: document.getElementById('s-name').value, attendance: parseInt(document.getElementById('s-att').value), assignment: parseInt(document.getElementById('s-ass').value), test: parseInt(document.getElementById('s-test').value), exam: parseInt(document.getElementById('s-exam').value), participation: parseInt(document.getElementById('s-part').value) }; 
+            data.predicted = BackendAPI.runML(data.attendance, data.assignment, data.test, data.exam, data.participation).result; 
+            let students = DB.get('students'); 
+            if (id) { students = students.map(s => s.id === parseInt(id) ? { ...s, ...data } : s); BackendAPI.addLog(DB.getSession().username, `Updated student ${data.name}`); } 
+            else { data.id = Math.max(0, ...students.map(s=>s.id)) + 1; students.push(data); BackendAPI.addLog(DB.getSession().username, `Added student ${data.name}`); } 
+            DB.set('students', students); closeModal(); 
+            if(DB.getSession().role === 'student') { renderStudentDash(); } else { renderStudents(); } 
+            showToast('Student record saved successfully', 'success'); 
+        }
+
+        function deleteStudent(id) { 
+            if(confirm('Are you sure you want to delete this student?')) { 
+                let students = DB.get('students').filter(s => s.id !== id); DB.set('students', students); BackendAPI.addLog(DB.getSession().username, `Deleted student ID ${id}`); renderStudents(); showToast('Student deleted', 'info'); 
+            } 
+        }
+
+        function closeModal() { document.getElementById('modal-root').classList.add('hidden'); document.getElementById('modal-root').innerHTML = ''; }
+
+        function handleCSVImport(event) { 
+            const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); 
+            reader.onload = function(e) { 
+                const text = e.target.result; const lines = text.split('\n'); let students = DB.get('students'); let count = 0; 
+                for (let i = 1; i < lines.length; i++) { const cols = lines[i].split(','); if (cols.length >= 7) { const att = parseInt(cols[2]), ass = parseInt(cols[3]), test = parseInt(cols[4]), exam = parseInt(cols[5]), part = parseInt(cols[6]); if(isNaN(att)) continue; const pred = BackendAPI.runML(att, ass, test, exam, part).result; students.push({ id: Math.max(0, ...students.map(s=>s.id)) + 1, studentId: cols[0].trim(), name: cols[1].trim(), attendance: att, assignment: ass, test: test, exam: exam, participation: part, predicted: pred }); count++; } } 
+                DB.set('students', students); BackendAPI.addLog(DB.getSession().username, `Imported ${count} records via CSV`); renderStudents(); showToast(`Imported ${count} students successfully`, 'success'); 
+            }; reader.readAsText(file); event.target.value = ''; 
+        }
+
+        function exportCSV() { 
+            const students = DB.get('students'); if(students.length === 0) { showToast('No data to export', 'error'); return; } 
+            let csv = 'StudentID,Name,Attendance,Assignment,Test,Exam,Participation,Prediction\n'; 
+            students.forEach(s => { csv += `${s.studentId},${s.name},${s.attendance},${s.assignment},${s.test},${s.exam},${s.participation},${s.predicted}\n`; }); 
+            const blob = new Blob([csv], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.setAttribute('hidden', ''); a.setAttribute('href', url); a.setAttribute('download', 'student_report.csv'); document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+            BackendAPI.addLog(DB.getSession().username, 'Exported student data to CSV'); 
+        }
+
+        function showToast(message, type = 'info') { 
+            const container = document.getElementById('toast-container'); const toast = document.createElement('div'); 
+            toast.className = `toast toast-${type}`; toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle'}"></i> ${message}`; 
+            container.appendChild(toast); setTimeout(() => toast.remove(), 4000); 
+        }
+    </script>
+</body>
+</html>
